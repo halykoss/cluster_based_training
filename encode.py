@@ -145,8 +145,8 @@ def encode_data_and_save():
     # ==========================
     # 8. Codifica con MOMENT
     # ==========================
-    def encode_sequences(sequences, model, batch_size=256):
-        """Codifica le sequenze utilizzando MOMENT."""
+    def encode_sequences(sequences, model, device, batch_size=256):
+        """Codifica le sequenze utilizzando MOMENT con supporto CUDA."""
         encoded_sequences = []
         
         # Processa in batch per gestire grandi quantità di dati
@@ -158,6 +158,9 @@ def encode_data_and_save():
                 batch_tensor = torch.tensor(batch, dtype=torch.float32)
             else:
                 batch_tensor = batch
+            
+            # Sposta il batch su GPU/CPU
+            batch_tensor = batch_tensor.to(device)
             
             # Sposta il batch su GPU/CPU
             batch_tensor = batch_tensor.to(device)
