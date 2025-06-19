@@ -24,13 +24,33 @@ def encode_data_and_save():
     """
     
     # ==========================
-    # 0. Configurazione CUDA
+    # 0. Configurazione Multi-GPU
     # ==========================
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Dispositivo utilizzato: {device}")
-    if torch.cuda.is_available():
-        print(f"GPU: {torch.cuda.get_device_name(0)}")
-        print(f"Memoria GPU disponibile: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
+    if not torch.cuda.is_available():
+        print("CUDA non disponibile, utilizzo CPU")
+        device = torch.device("cpu")
+        use_multi_gpu = False
+    else:
+        num_gpus = torch.cuda.device_count()
+        print(f"GPU disponibili: {num_gpus}")
+        
+        # Mostra informazioni per tutte le GPU
+        for i in range(num_gpus):
+            print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
+            print(f"  Memoria: {torch.cuda.get_device_properties(i).total_memory / 1e9:.1f} GB")
+        
+        if num_gpus >= 4:
+            print("Utilizzo 4 GPU per il data parallelism")
+            use_multi_gpu = True
+            device = torch.device("cuda:0")  # GPU principale
+        elif num_gpus > 1:
+            print(f"Utilizzo {num_gpus} GPU per il data parallelism")
+            use_multi_gpu = True
+            device = torch.device("cuda:0")  # GPU principale
+        else:
+            print("Una sola GPU disponibile, utilizzo singola GPU")
+            use_multi_gpu = False
+            device = torch.device("cuda:0")
     
     # ==========================
     # 1. Carica il modello MOMENT
@@ -42,13 +62,27 @@ def encode_data_and_save():
     )
     model.init()
     
-    # Sposta il modello su GPU se disponibile
+    # Sposta il modello su GPU e configura DataParallel se necessario
     model = model.to(device)
-    print(f"Modello MOMENT caricato con successo su {device}!")
+    
+    if use_multi_gpu:
+        # Determina quali GPU utilizzare
+        if torch.cuda.device_count() >= 4:
+            gpu_ids = [0, 1, 2, 3]  # Usa le prime 4 GPU
+        else:
+            gpu_ids = list(range(torch.cuda.device_count()))  # Usa tutte le GPU disponibili
+        
+        print(f"Configurazione DataParallel su GPU: {gpu_ids}")
+        model = torch.nn.DataParallel(model, device_ids=gpu_ids)
+        print(f"Modello MOMENT caricato con DataParallel su {len(gpu_ids)} GPU!")
+    else:
+        print(f"Modello MOMENT caricato su {device}!")
     
     # Monitora memoria GPU dopo caricamento modello
     if device.type == 'cuda':
-        print_gpu_memory_usage()
+        print("Memoria GPU dopo caricamento modello:")
+        for i in range(min(4, torch.cuda.device_count())):
+            print(f"  GPU {i}: {torch.cuda.memory_allocated(i) / 1e9:.2f} GB allocata")
     
     # ==========================
     # 2. Carica e preprocessa i dati (come in main.py)
@@ -145,8 +179,31 @@ def encode_data_and_save():
     # ==========================
     # 8. Codifica con MOMENT
     # ==========================
-    def encode_sequences(sequences, model, device, batch_size=256):
-        """Codifica le sequenze utilizzando MOMENT con supporto CUDA."""
+    def encode_sequences(sequences, model, device, use_multi_gpu, batch_size=None):
+        """Codifica le sequenze utilizzando MOMENT con supporto Multi-GPU."""
+        
+        # Calcola batch size ottimale per multi-GPU
+        if batch_size is None:
+            if use_multi_gpu:
+                num_gpus = len(model.device_ids) if hasattr(model, 'device_ids') else torch.cuda.device_count()
+                # Batch size più grande per multiple GPU
+                base_batch_size = 64
+                batch_size = base_batch_size * num_gpus
+                print(f"Multi-GPU: utilizzo {num_gpus} GPU con batch_size totale {batch_size}")
+            elif device.type == 'cuda':
+                # Singola GPU
+                gpu_memory_gb = torch.cuda.get_device_properties(0).total_memory / 1e9
+                if gpu_memory_gb >= 24:
+                    batch_size = 128
+                elif gpu_memory_gb >= 12:
+                    batch_size = 64
+                else:
+                    batch_size = 32
+            else:
+                # CPU
+                batch_size = 16
+        
+        print(f"Utilizzando batch_size: {batch_size}")
         encoded_sequences = []
         
         # Processa in batch per gestire grandi quantità di dati
@@ -162,9 +219,6 @@ def encode_data_and_save():
             # Sposta il batch su GPU/CPU
             batch_tensor = batch_tensor.to(device)
             
-            # Sposta il batch su GPU/CPU
-            batch_tensor = batch_tensor.to(device)
-            
             # Codifica con MOMENT
             with torch.no_grad():
                 embeddings = model(x_enc=batch_tensor)
@@ -176,27 +230,48 @@ def encode_data_and_save():
             # Sposta i risultati su CPU per salvare memoria GPU
             encoded_sequences.append(embeddings.cpu().numpy())
             
-            # Pulisci la cache GPU se necessario
+            # Pulisci la cache GPU se necessario per tutte le GPU
             if device.type == 'cuda':
-                torch.cuda.empty_cache()
+                if use_multi_gpu:
+                    # Pulisci cache per tutte le GPU utilizzate
+                    for gpu_id in range(min(4, torch.cuda.device_count())):
+                        torch.cuda.empty_cache(device=gpu_id)
+                else:
+                    torch.cuda.empty_cache()
         
         return np.vstack(encoded_sequences)
     
     print("Codifica dati di training...")
     if device.type == 'cuda':
-        print_gpu_memory_usage()
-    encoded_x_train = encode_sequences(x_data_train, model, device)
+        if use_multi_gpu:
+            print("Memoria GPU prima della codifica training:")
+            for i in range(min(4, torch.cuda.device_count())):
+                print(f"  GPU {i}: {torch.cuda.memory_allocated(i) / 1e9:.2f} GB allocata")
+        else:
+            print_gpu_memory_usage()
+    encoded_x_train = encode_sequences(x_data_train, model, device, use_multi_gpu)
     
     print("Codifica dati di test...")
     if device.type == 'cuda':
-        print_gpu_memory_usage()
-    encoded_x_test = encode_sequences(x_data_test, model, device)
+        if use_multi_gpu:
+            print("Memoria GPU prima della codifica test:")
+            for i in range(min(4, torch.cuda.device_count())):
+                print(f"  GPU {i}: {torch.cuda.memory_allocated(i) / 1e9:.2f} GB allocata")
+        else:
+            print_gpu_memory_usage()
+    encoded_x_test = encode_sequences(x_data_test, model, device, use_multi_gpu)
     
     # Libera il modello dalla memoria GPU dopo la codifica
     if device.type == 'cuda':
         del model
-        torch.cuda.empty_cache()
-        print("Memoria GPU liberata dopo la codifica")
+        if use_multi_gpu:
+            # Pulisci cache per tutte le GPU utilizzate
+            for gpu_id in range(min(4, torch.cuda.device_count())):
+                torch.cuda.empty_cache(device=gpu_id)
+            print("Memoria GPU liberata dopo la codifica (multi-GPU)")
+        else:
+            torch.cuda.empty_cache()
+            print("Memoria GPU liberata dopo la codifica")
     
     # ==========================
     # 9. Clustering KMeans sulle embeddings
@@ -299,8 +374,17 @@ def encode_data_and_save():
     print(f"Numero target: {len(targets)}")
     print(f"Dispositivo utilizzato: {device}")
     if device.type == 'cuda':
-        print(f"GPU utilizzata: {torch.cuda.get_device_name(0)}")
-        print_gpu_memory_usage()
+        if use_multi_gpu:
+            num_gpus_used = min(4, torch.cuda.device_count())
+            print(f"Multi-GPU utilizzate: {num_gpus_used} GPU")
+            for i in range(num_gpus_used):
+                print(f"  GPU {i}: {torch.cuda.get_device_name(i)}")
+            print("Memoria GPU finale:")
+            for i in range(num_gpus_used):
+                print(f"  GPU {i}: {torch.cuda.memory_allocated(i) / 1e9:.2f} GB allocata")
+        else:
+            print(f"GPU utilizzata: {torch.cuda.get_device_name(0)}")
+            print_gpu_memory_usage()
     print("\nFile salvati in:")
     print("- encoded_data/encoded_data.npz")
     print("  - x_data_train: sequenze input di training")
