@@ -22,6 +22,7 @@ def encode_data_and_save():
         "AutonLab/MOMENT-1-large", 
         model_kwargs={'task_name': 'embedding'},
     )
+    model.init()
     print("Modello MOMENT caricato con successo!")
     
     # ==========================
@@ -126,7 +127,7 @@ def encode_data_and_save():
         # Processa in batch per gestire grandi quantità di dati
         for i in tqdm(range(0, len(sequences), batch_size), desc="Codifica sequenze"):
             batch = sequences[i:i + batch_size]
-            print(batch)
+            
             # Converti in tensor PyTorch se non lo è già
             if not isinstance(batch, torch.Tensor):
                 batch_tensor = torch.tensor(batch, dtype=torch.float32)
@@ -135,7 +136,7 @@ def encode_data_and_save():
             
             # Codifica con MOMENT
             with torch.no_grad():
-                embeddings = model(batch_tensor)
+                embeddings = model(x_enc=batch_tensor)
                 if hasattr(embeddings, 'last_hidden_state'):
                     embeddings = embeddings.last_hidden_state
                 elif hasattr(embeddings, 'embeddings'):
