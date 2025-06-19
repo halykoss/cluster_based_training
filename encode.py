@@ -153,8 +153,6 @@ def encode_data_and_save():
         for i in tqdm(range(0, len(sequences), batch_size), desc="Codifica sequenze"):
             batch = sequences[i:i + batch_size]
             
-            if i > 20:
-                break
             # Converti in tensor PyTorch se non lo è già
             if not isinstance(batch, torch.Tensor):
                 batch_tensor = torch.tensor(batch, dtype=torch.float32)
