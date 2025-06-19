@@ -1,0 +1,33 @@
+# Core data processing
+pandas>=1.5.0
+numpy>=1.21.0
+
+# Machine Learning and Deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+scikit-learn>=1.2.0
+
+# MOMENT model for time series embeddings
+momentfm
+
+# Progress bars and visualization
+tqdm>=4.64.0
+
+# Experiment tracking
+wandb>=0.15.0
+
+# Additional utilities that might be needed
+matplotlib>=3.5.0
+seaborn>=0.11.0
+jupyter>=1.0.0
+ipykernel>=6.0.0
+
+# For potential GPU acceleration (optional)
+# Uncomment if using CUDA
+# torch-audio>=2.0.0
+# torchtext>=0.15.0
+
+# Development and testing (optional)
+pytest>=7.0.0
+black>=22.0.0
+flake8>=5.0.0
