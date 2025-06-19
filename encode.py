@@ -6,6 +6,7 @@ from tqdm import tqdm
 import os
 import pickle
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.cluster import KMeans
 from dataset.TimeSeriesDataset import ProfileSequenceDataset
 
 def encode_data_and_save():
@@ -151,9 +152,35 @@ def encode_data_and_save():
     encoded_x_test = encode_sequences(x_data_test, model)
     
     # ==========================
-    # 9. Salva i dati codificati
+    # 9. Clustering KMeans sulle embeddings
     # ==========================
-    print("Salvataggio dei dati codificati...")
+    print("Esecuzione KMeans clustering sulle embeddings...")
+    n_clusters = 36
+    
+    # Reshape delle embeddings per il clustering (flatten ogni sequenza)
+    # Le embeddings hanno shape (n_sequences, seq_len, embedding_dim)
+    # Per KMeans le convertiamo in (n_sequences, seq_len * embedding_dim)
+    encoded_x_train_flat = encoded_x_train.reshape(encoded_x_train.shape[0], -1)
+    encoded_x_test_flat = encoded_x_test.reshape(encoded_x_test.shape[0], -1)
+    
+    # Fit KMeans sui dati di training
+    kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+    train_cluster_labels = kmeans.fit_predict(encoded_x_train_flat)
+    
+    # Predici i cluster per i dati di test
+    test_cluster_labels = kmeans.predict(encoded_x_test_flat)
+    
+    print(f"Clustering completato con {n_clusters} cluster")
+    print(f"Distribuzione cluster training: {np.bincount(train_cluster_labels)}")
+    print(f"Distribuzione cluster test: {np.bincount(test_cluster_labels)}")
+    
+    # ==========================
+    # 10. Salva i dati codificati e i cluster
+    # ==========================
+    # ==========================
+    # 10. Salva i dati codificati e i cluster
+    # ==========================
+    print("Salvataggio dei dati codificati e cluster...")
     
     # Crea la directory di output se non esiste
     os.makedirs("encoded_data", exist_ok=True)
@@ -163,20 +190,24 @@ def encode_data_and_save():
                        x_data_train=x_data_train,
                        y_data_train=y_data_train,
                        encoded_x_train=encoded_x_train,
+                       train_cluster_labels=train_cluster_labels,
                        x_data_test=x_data_test,
                        y_data_test=y_data_test,
-                       encoded_x_test=encoded_x_test)
+                       encoded_x_test=encoded_x_test,
+                       test_cluster_labels=test_cluster_labels)
     
-    # Salva anche gli scaler e metadata (manteniamo pickle per questi oggetti complessi)
-    scalers = {
+    # Salva anche gli scaler, KMeans e metadata
+    scalers_and_models = {
         'scaler_x': scaler_x,
         'scaler_y': scaler_y,
         'features': features,
-        'targets': targets
+        'targets': targets,
+        'kmeans_model': kmeans,
+        'n_clusters': n_clusters
     }
     
     with open("encoded_data/scalers_and_metadata.pkl", "wb") as f:
-        pickle.dump(scalers, f)
+        pickle.dump(scalers_and_models, f)
     
     # Salva anche i metadata delle feature come file di testo per facilità di lettura
     with open("encoded_data/features_info.txt", "w") as f:
@@ -188,12 +219,18 @@ def encode_data_and_save():
         f.write("="*50 + "\n")
         for i, target in enumerate(targets):
             f.write(f"{i:3d}: {target}\n")
+        f.write(f"\nCLUSTERING INFO:\n")
+        f.write("="*50 + "\n")
+        f.write(f"Numero di cluster: {n_clusters}\n")
+        f.write(f"Algoritmo: KMeans\n")
+        f.write(f"Distribuzione cluster training: {np.bincount(train_cluster_labels).tolist()}\n")
+        f.write(f"Distribuzione cluster test: {np.bincount(test_cluster_labels).tolist()}\n")
     
     # ==========================
-    # 10. Stampa statistiche finali
+    # 11. Stampa statistiche finali
     # ==========================
     print("\n" + "="*50)
-    print("CODIFICA COMPLETATA!")
+    print("CODIFICA E CLUSTERING COMPLETATI!")
     print("="*50)
     print(f"Sequenze di training codificate: {len(x_data_train)}")
     print(f"Sequenze di test codificate: {len(x_data_test)}")
@@ -201,6 +238,9 @@ def encode_data_and_save():
     print(f"Dimensione target: {y_data_train.shape}")
     print(f"Dimensione embeddings train: {encoded_x_train.shape}")
     print(f"Dimensione embeddings test: {encoded_x_test.shape}")
+    print(f"Numero di cluster: {n_clusters}")
+    print(f"Distribuzione cluster training: {np.bincount(train_cluster_labels)}")
+    print(f"Distribuzione cluster test: {np.bincount(test_cluster_labels)}")
     print(f"Lunghezza sequenza: {SEQ_LEN}")
     print(f"Numero feature originali: {len(features)}")
     print(f"Numero target: {len(targets)}")
@@ -209,9 +249,11 @@ def encode_data_and_save():
     print("  - x_data_train: sequenze input di training")
     print("  - y_data_train: target di training")
     print("  - encoded_x_train: embeddings MOMENT di training")
+    print("  - train_cluster_labels: etichette cluster di training")
     print("  - x_data_test: sequenze input di test")
     print("  - y_data_test: target di test")
     print("  - encoded_x_test: embeddings MOMENT di test")
+    print("  - test_cluster_labels: etichette cluster di test")
     print("- encoded_data/scalers_and_metadata.pkl")
     print("- encoded_data/features_info.txt")
     print("="*50)
@@ -220,16 +262,18 @@ def encode_data_and_save():
         'x_data_train': x_data_train,
         'y_data_train': y_data_train,
         'encoded_x_train': encoded_x_train,
+        'train_cluster_labels': train_cluster_labels,
         'x_data_test': x_data_test,
         'y_data_test': y_data_test,
-        'encoded_x_test': encoded_x_test
-    }, scalers
+        'encoded_x_test': encoded_x_test,
+        'test_cluster_labels': test_cluster_labels
+    }, scalers_and_models
 
 def load_encoded_data():
     """
-    Carica i dati codificati precedentemente salvati da file npz.
+    Carica i dati codificati e i cluster precedentemente salvati da file npz.
     """
-    print("Caricamento dati codificati...")
+    print("Caricamento dati codificati e cluster...")
     
     # Carica i dati dal file npz
     data_npz = np.load("encoded_data/encoded_data.npz")
@@ -237,12 +281,14 @@ def load_encoded_data():
         'x_data_train': data_npz['x_data_train'],
         'y_data_train': data_npz['y_data_train'],
         'encoded_x_train': data_npz['encoded_x_train'],
+        'train_cluster_labels': data_npz['train_cluster_labels'],
         'x_data_test': data_npz['x_data_test'],
         'y_data_test': data_npz['y_data_test'],
-        'encoded_x_test': data_npz['encoded_x_test']
+        'encoded_x_test': data_npz['encoded_x_test'],
+        'test_cluster_labels': data_npz['test_cluster_labels']
     }
     
-    # Carica i metadata (ancora in pickle per compatibilità con gli oggetti scaler)
+    # Carica i metadata (ancora in pickle per compatibilità con gli oggetti scaler e KMeans)
     with open("encoded_data/scalers_and_metadata.pkl", "rb") as f:
         metadata = pickle.load(f)
     
@@ -251,6 +297,10 @@ def load_encoded_data():
     print(f"Dimensione input originale: {data['x_data_train'].shape}")
     print(f"Dimensione embeddings train: {data['encoded_x_train'].shape}")
     print(f"Dimensione embeddings test: {data['encoded_x_test'].shape}")
+    print(f"Numero di cluster: {metadata.get('n_clusters', 'N/A')}")
+    if 'train_cluster_labels' in data:
+        print(f"Distribuzione cluster training: {np.bincount(data['train_cluster_labels'])}")
+        print(f"Distribuzione cluster test: {np.bincount(data['test_cluster_labels'])}")
     
     return data, metadata
 
