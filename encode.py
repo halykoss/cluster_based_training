@@ -9,10 +9,28 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.cluster import KMeans
 from dataset.TimeSeriesDataset import ProfileSequenceDataset
 
+def print_gpu_memory_usage():
+    """Stampa l'utilizzo attuale della memoria GPU"""
+    if torch.cuda.is_available():
+        allocated = torch.cuda.memory_allocated() / 1e9
+        cached = torch.cuda.memory_reserved() / 1e9
+        print(f"Memoria GPU: {allocated:.2f} GB allocata, {cached:.2f} GB riservata")
+    else:
+        print("CUDA non disponibile")
+
 def encode_data_and_save():
     """
     Processo per codificare tutti i dati utilizzando MOMENT e salvarli in un file.
     """
+    
+    # ==========================
+    # 0. Configurazione CUDA
+    # ==========================
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Dispositivo utilizzato: {device}")
+    if torch.cuda.is_available():
+        print(f"GPU: {torch.cuda.get_device_name(0)}")
+        print(f"Memoria GPU disponibile: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
     
     # ==========================
     # 1. Carica il modello MOMENT
@@ -23,7 +41,14 @@ def encode_data_and_save():
         model_kwargs={'task_name': 'embedding'},
     )
     model.init()
-    print("Modello MOMENT caricato con successo!")
+    
+    # Sposta il modello su GPU se disponibile
+    model = model.to(device)
+    print(f"Modello MOMENT caricato con successo su {device}!")
+    
+    # Monitora memoria GPU dopo caricamento modello
+    if device.type == 'cuda':
+        print_gpu_memory_usage()
     
     # ==========================
     # 2. Carica e preprocessa i dati (come in main.py)
@@ -120,7 +145,7 @@ def encode_data_and_save():
     # ==========================
     # 8. Codifica con MOMENT
     # ==========================
-    def encode_sequences(sequences, model, batch_size=32):
+    def encode_sequences(sequences, model, batch_size=256):
         """Codifica le sequenze utilizzando MOMENT."""
         encoded_sequences = []
         
@@ -134,6 +159,9 @@ def encode_data_and_save():
             else:
                 batch_tensor = batch
             
+            # Sposta il batch su GPU/CPU
+            batch_tensor = batch_tensor.to(device)
+            
             # Codifica con MOMENT
             with torch.no_grad():
                 embeddings = model(x_enc=batch_tensor)
@@ -142,15 +170,30 @@ def encode_data_and_save():
                 elif hasattr(embeddings, 'embeddings'):
                     embeddings = embeddings.embeddings
             
+            # Sposta i risultati su CPU per salvare memoria GPU
             encoded_sequences.append(embeddings.cpu().numpy())
+            
+            # Pulisci la cache GPU se necessario
+            if device.type == 'cuda':
+                torch.cuda.empty_cache()
         
         return np.vstack(encoded_sequences)
     
     print("Codifica dati di training...")
-    encoded_x_train = encode_sequences(x_data_train, model)
+    if device.type == 'cuda':
+        print_gpu_memory_usage()
+    encoded_x_train = encode_sequences(x_data_train, model, device)
     
     print("Codifica dati di test...")
-    encoded_x_test = encode_sequences(x_data_test, model)
+    if device.type == 'cuda':
+        print_gpu_memory_usage()
+    encoded_x_test = encode_sequences(x_data_test, model, device)
+    
+    # Libera il modello dalla memoria GPU dopo la codifica
+    if device.type == 'cuda':
+        del model
+        torch.cuda.empty_cache()
+        print("Memoria GPU liberata dopo la codifica")
     
     # ==========================
     # 9. Clustering KMeans sulle embeddings
@@ -161,14 +204,20 @@ def encode_data_and_save():
     # Reshape delle embeddings per il clustering (flatten ogni sequenza)
     # Le embeddings hanno shape (n_sequences, seq_len, embedding_dim)
     # Per KMeans le convertiamo in (n_sequences, seq_len * embedding_dim)
+    print("Preparazione dati per clustering...")
     encoded_x_train_flat = encoded_x_train.reshape(encoded_x_train.shape[0], -1)
     encoded_x_test_flat = encoded_x_test.reshape(encoded_x_test.shape[0], -1)
     
+    print(f"Dimensione dati flattened per training: {encoded_x_train_flat.shape}")
+    print(f"Dimensione dati flattened per test: {encoded_x_test_flat.shape}")
+    
     # Fit KMeans sui dati di training
+    print("Avvio KMeans clustering...")
     kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
     train_cluster_labels = kmeans.fit_predict(encoded_x_train_flat)
     
     # Predici i cluster per i dati di test
+    print("Predizione cluster per dati di test...")
     test_cluster_labels = kmeans.predict(encoded_x_test_flat)
     
     print(f"Clustering completato con {n_clusters} cluster")
@@ -245,6 +294,10 @@ def encode_data_and_save():
     print(f"Lunghezza sequenza: {SEQ_LEN}")
     print(f"Numero feature originali: {len(features)}")
     print(f"Numero target: {len(targets)}")
+    print(f"Dispositivo utilizzato: {device}")
+    if device.type == 'cuda':
+        print(f"GPU utilizzata: {torch.cuda.get_device_name(0)}")
+        print_gpu_memory_usage()
     print("\nFile salvati in:")
     print("- encoded_data/encoded_data.npz")
     print("  - x_data_train: sequenze input di training")
