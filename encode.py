@@ -37,7 +37,7 @@ def encode_data_and_save():
     # ==========================
     print("Caricamento del modello MOMENT...")
     model = MOMENTPipeline.from_pretrained(
-        "AutonLab/MOMENT-1-large", 
+        "AutonLab/MOMENT-1-base", 
         model_kwargs={'task_name': 'embedding'},
     )
     model.init()
