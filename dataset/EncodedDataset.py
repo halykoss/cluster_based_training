@@ -112,7 +112,6 @@ class EncodedDataset(Dataset):
         all_indices = []
         
         for cluster_id in range(36):
-            print("Dim cluster_labels:", self.cluster_labels.shape)
             cluster_samples = np.sum(self.cluster_labels == cluster_id)
             samples_to_take = int(cluster_samples * weights[cluster_id])
 
