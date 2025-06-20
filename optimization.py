@@ -45,6 +45,10 @@ def optimize(trial):
         include_clusters=True,
         cluster_weights=cluster_weights
     )
+
+    if train_dataset.sampled_indices is not None:
+        np.save("data/indexes/indices_trial_{}.npy".format(trial.number), train_dataset.sampled_indices)
+
     test_dataset = EncodedDataset(mode='test', use_encoded=False, include_clusters=False)
 
     print(f"Training sequences count: {len(train_dataset)}")

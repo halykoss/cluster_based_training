@@ -44,12 +44,12 @@ class EncodedDataset(Dataset):
         # Prepara il weighted sampling se richiesto
         if self.cluster_weights is not None:
             self._setup_weighted_sampling()
-            sampled_indices = self.get_weighted_sample_indices()
-            self.x_data = self.x_data[sampled_indices]
-            self.y_data = self.y_data[sampled_indices]
+            self.sampled_indices = self.get_weighted_sample_indices()
+            self.x_data = self.x_data[self.sampled_indices]
+            self.y_data = self.y_data[self.sampled_indices]
             if self.cluster_labels is not None:
-                self.cluster_labels = self.cluster_labels[sampled_indices]
-    
+                self.cluster_labels = self.cluster_labels[self.sampled_indices]
+
     def _load_data(self):
         """Carica i dati dal file npz"""
         print(f"Caricamento dati {self.mode} ({'codificati' if self.use_encoded else 'originali'})...")
