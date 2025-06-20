@@ -12,7 +12,7 @@ import time
 import os 
 
 def train_model(trial, weights):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:{}".format(trial.number % torch.cuda.device_count()) if torch.cuda.is_available() else "cpu")
 
     # Training hyperparameters
     batch_size = 1024
