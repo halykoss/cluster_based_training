@@ -39,7 +39,7 @@ def optimize(trial):
     weights_dir = "data/weights/"
     if not os.path.exists(weights_dir):
         os.makedirs(weights_dir)
-    np.save(os.path.join(weights_dir, "cluster_weights_trial_{}.npy".format(trial.number)), train_dataset.sampled_indices)
+    np.save(os.path.join(weights_dir, "cluster_weights_trial_{}.npy".format(trial.number)), np.array(cluster_weights))
     
     sys.stderr.write(f"Trial {trial.number}, campionamento dei pesi dei cluster:\n")
     sys.stderr.flush()
