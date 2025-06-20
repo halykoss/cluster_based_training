@@ -113,6 +113,7 @@ class EncodedDataset(Dataset):
         
         for cluster_id in range(36):
             cluster_samples = np.sum(self.cluster_labels == cluster_id)
+            print(f"Cluster {cluster_id}: {cluster_samples} campioni")
             samples_to_take = int(cluster_samples * weights[cluster_id])
 
             selected_indices = np.random.choice(
