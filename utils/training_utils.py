@@ -46,9 +46,6 @@ def train_model(trial, weights):
     n_features = train_info['num_features']
     n_targets = train_info['num_targets']
 
-    print(f"Number of features: {n_features}")
-    print(f"Number of targets: {n_targets}")
-
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
@@ -68,7 +65,7 @@ def train_model(trial, weights):
             samples_processed = 0
             start_time = time.time()  # Inizio misurazione del tempo
             
-            for X_batch, y_batch in tqdm(loader, leave=False):
+            for X_batch, y_batch in loader:
                 batch_size = X_batch.size(0)
                 X_batch = X_batch.to(device)
                 y_batch = y_batch.to(device)
@@ -93,13 +90,7 @@ def train_model(trial, weights):
                 mse, rmse_dict, mae_dict, mape_dict, val_throughput = evaluate_model(model, val_loader, val_dataset)
                 if mse < best_mse:
                     best_mse = mse
-                print(f"Validation - Epoch {epoch+1} MSE: {mse:.4f}, Throughput: {val_throughput:.2f} samples/sec")
-                for target_name, rmse in rmse_dict.items():
-                    print(f"Validation - Epoch {epoch+1} RMSE for {target_name}: {rmse:.4f}")
-                for target_name, mae in mae_dict.items():
-                    print(f"Validation - Epoch {epoch+1} MAE for {target_name}: {mae:.4f}")
-                for target_name, mape in mape_dict.items():
-                    print(f"Validation - Epoch {epoch+1} MAPE for {target_name}: {mape:.2f}%")
+                print(f" Validation {trial.number} - Epoch {epoch+1} MSE: {mse:.4f}")
                 model.train()
         return best_mse
 
@@ -149,10 +140,6 @@ def train_model(trial, weights):
     # ==========================
     # 4. Single Model Training (simplified from original model selection)
     # ==========================
-
-    # Initialize a single model with fixed hyperparameters
-    model_name = "TransformerSinusoidal"
-    print(f"\nTraining {model_name} model...")
 
     # Create the model
     model = TransformerModelSinusoidal.TransformerModelSinusoidal(
