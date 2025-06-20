@@ -8,7 +8,7 @@ from sklearn.metrics import mean_squared_error
 import sys
 from models import TransformerModelSinusoidal
 from dataset.EncodedDataset import EncodedDataset
-from utils.training_utils import train_model, evaluate_model
+from utils.training_utils import train_model
 from tqdm import tqdm
 import time
 import optuna
