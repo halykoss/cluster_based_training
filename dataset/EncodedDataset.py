@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 import pickle
 import os
-
+import sys
 
 class EncodedDataset(Dataset):
     """
@@ -43,11 +43,13 @@ class EncodedDataset(Dataset):
         
         # Prepara il weighted sampling se richiesto
         if self.cluster_weights is not None:
-            print("Dim. x_data:", self.x_data.shape)
+            sys.stderr.write(f"Dim. x_data: {self.x_data.shape}\n")
+            sys.stderr.flush()
             self.sampled_indices = self.get_weighted_sample_indices(self.cluster_weights)
             self.x_data = self.x_data[self.sampled_indices]
             self.y_data = self.y_data[self.sampled_indices]
-            print("Dim. x_data:", self.x_data.shape)
+            sys.stderr.write(f"Dim. x_data: {self.x_data.shape}\n")
+            sys.stderr.flush()
             if self.cluster_labels is not None:
                 self.cluster_labels = self.cluster_labels[self.sampled_indices]
 
