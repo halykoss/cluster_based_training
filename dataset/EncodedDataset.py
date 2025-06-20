@@ -109,10 +109,6 @@ class EncodedDataset(Dataset):
         Returns:
             np.array: indici campionati da tutti i cluster (shuffled)
         """
-        if not hasattr(self, 'cluster_indices') or self.cluster_indices is None:
-            # Fallback: restituisci tutti gli indici disponibili
-            return np.arange(len(self.x_data))
-        
         all_indices = []
         
         for cluster_id in range(36):
