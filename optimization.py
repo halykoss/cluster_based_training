@@ -28,9 +28,9 @@ def optimize(trial):
     eval_interval = 1100  # Evaluate every 100 steps
     batch_size = 1024
     learning_rate = 1e-4
-    patch_size = 30
 
     # Model hyperparameters
+    patch_size = 30
     embed_dims = [256]
     num_heads_options = 8
     use_cnn_options = [True]

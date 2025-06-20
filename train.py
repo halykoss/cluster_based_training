@@ -8,7 +8,6 @@ from sklearn.metrics import mean_squared_error
 from models import TransformerModelSinusoidal
 from dataset.EncodedDataset import EncodedDataset
 from tqdm import tqdm
-import wandb
 import time
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -80,35 +79,19 @@ def train_model(model, loader, optimizer, loss_fn, scheduler, epochs=10, val_loa
         epoch_loss /= len(loader.dataset)
         current_lr = optimizer.param_groups[0]['lr']
 
-        # Consolidate metrics for a single logging call
-        metrics = {
-            "epoch": epoch + 1,
-            "loss": epoch_loss,
-            "lr": current_lr,
-            "train_throughput": throughput  # Aggiungo il throughput alle metriche
-        }
-
         print(f"Epoch {epoch+1}/{epochs}, Loss: {epoch_loss:.4f}, LR: {current_lr:.6f}, Throughput: {throughput:.2f} samples/sec")
         
         if val_loader is not None and val_dataset is not None:
             model.eval()
             mse, rmse_dict, mae_dict, mape_dict, val_throughput = evaluate_model(model, val_loader, val_dataset)
             print(f"Validation - Epoch {epoch+1} MSE: {mse:.4f}, Throughput: {val_throughput:.2f} samples/sec")
-            metrics["val_mse"] = mse
-            metrics["val_throughput"] = val_throughput  # Aggiungo il throughput in validazione
             for target_name, rmse in rmse_dict.items():
                 print(f"Validation - Epoch {epoch+1} RMSE for {target_name}: {rmse:.4f}")
-                metrics[f"val_rmse_{target_name}"] = rmse
             for target_name, mae in mae_dict.items():
                 print(f"Validation - Epoch {epoch+1} MAE for {target_name}: {mae:.4f}")
-                metrics[f"val_mae_{target_name}"] = mae
             for target_name, mape in mape_dict.items():
                 print(f"Validation - Epoch {epoch+1} MAPE for {target_name}: {mape:.2f}%")
-                metrics[f"val_mape_{target_name}"] = mape
             model.train()
-
-        # Log all metrics at once
-        wandb.log(metrics)
 
 def evaluate_model(model, loader, dataset):
     model.eval()
@@ -161,19 +144,6 @@ def evaluate_model(model, loader, dataset):
 model_name = "TransformerSinusoidal"
 print(f"\nTraining {model_name} model...")
 
-# Initialize wandb
-wandb.init(project="PSMS_experiment", name=model_name, config={
-    "model": model_name,
-    "patch_size": patch_size,
-    "embed_dim": embed_dims[0],
-    "num_heads": num_heads_options,
-    "use_cnn": use_cnn_options[0],
-    "epochs": epochs,
-    "batch_size": batch_size,
-    "learning_rate": learning_rate,
-    "scheduler": "linear"
-}, reinit=True)
-
 # Create the model
 model = TransformerModelSinusoidal.TransformerModelSinusoidal(
     input_size=n_features, 
@@ -194,7 +164,6 @@ scheduler = torch.optim.lr_scheduler.LambdaLR(
     optimizer,
     lr_lambda=lambda step: float(step) / warmup_steps if step < warmup_steps else max(0.0, float(total_steps - step) / (total_steps - warmup_steps))
 )
-wandb.watch(model, log="all")
 loss_fn = nn.MSELoss()
 
 # Train the model
@@ -203,24 +172,8 @@ train_model(model, train_loader, optimizer, loss_fn, scheduler, epochs=epochs, v
 # Final evaluation
 mse, rmse_dict, mae_dict, mape_dict, test_throughput = evaluate_model(model, test_loader, test_dataset)
 
-# Log final results
-final_metrics = {
-    "test_mse": mse,
-    "test_throughput": test_throughput
-}
-for target, value in rmse_dict.items():
-    final_metrics[f"test_rmse_{target}"] = value
-for target, value in mae_dict.items():
-    final_metrics[f"test_mae_{target}"] = value
-for target, value in mape_dict.items():
-    final_metrics[f"test_mape_{target}"] = value
-    
-wandb.log(final_metrics)
-
 print(f"\nFinal Results:")
 print(f"Test MSE: {mse:.4f}")
 print(f"Test Throughput: {test_throughput:.2f} samples/sec")
 for target_name, rmse in rmse_dict.items():
     print(f"RMSE for {target_name}: {rmse:.4f}")
-
-wandb.finish()
