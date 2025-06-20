@@ -43,10 +43,11 @@ class EncodedDataset(Dataset):
         
         # Prepara il weighted sampling se richiesto
         if self.cluster_weights is not None:
-            self._setup_weighted_sampling()
-            self.sampled_indices = self.get_weighted_sample_indices()
+            print("Dim. x_data:", self.x_data.shape)
+            self.sampled_indices = self.get_weighted_sample_indices(self.cluster_weights)
             self.x_data = self.x_data[self.sampled_indices]
             self.y_data = self.y_data[self.sampled_indices]
+            print("Dim. x_data:", self.x_data.shape)
             if self.cluster_labels is not None:
                 self.cluster_labels = self.cluster_labels[self.sampled_indices]
 
@@ -97,59 +98,8 @@ class EncodedDataset(Dataset):
             print(f"Distribuzione cluster: {np.bincount(self.cluster_labels)}")
         else:
             print("Nessun cluster label disponibile")
-    
-    def _setup_weighted_sampling(self):
-        """Configura il weighted sampling basato sui cluster weights"""
-        if self.cluster_labels is None:
-            print("Warning: Cluster weights forniti ma nessun cluster label disponibile")
-            self.weighted_indices = None
-            return
-        
-        # Verifica che i pesi abbiano la lunghezza corretta
-        n_clusters = len(np.unique(self.cluster_labels))
-        if len(self.cluster_weights) != 36:
-            raise ValueError(f"Devono essere forniti esattamente 36 pesi, ricevuti {len(self.cluster_weights)}")
-        
-        # Verifica che i pesi siano nel range [0, 1]
-        if not all(0 <= w <= 1 for w in self.cluster_weights):
-            raise ValueError("Tutti i pesi devono essere compresi tra 0 e 1")
-        
-        # Calcola quanti elementi prendere da ogni cluster
-        self.cluster_indices = {}
-        self.cluster_sample_counts = {}
-        
-        for cluster_id in range(36):
-            # Trova tutti i campioni del cluster
-            cluster_mask = self.cluster_labels == cluster_id
-            cluster_sample_indices = np.where(cluster_mask)[0]
-            
-            if len(cluster_sample_indices) > 0:
-                # Calcola quanti campioni prendere: numero_elementi * peso
-                weight = self.cluster_weights[cluster_id]
-                num_samples_to_take = int(len(cluster_sample_indices) * weight)
-                
-                self.cluster_indices[cluster_id] = cluster_sample_indices
-                self.cluster_sample_counts[cluster_id] = num_samples_to_take
-            else:
-                self.cluster_indices[cluster_id] = np.array([])
-                self.cluster_sample_counts[cluster_id] = 0
-        
-        print(f"Weighted sampling configurato:")
-        print(f"- Pesi cluster: {self.cluster_weights}")
-        print(f"- Distribuzione campioni per cluster:")
-        total_original = 0
-        total_weighted = 0
-        for cluster_id in range(36):
-            original_count = len(self.cluster_indices[cluster_id])
-            weighted_count = self.cluster_sample_counts[cluster_id]
-            total_original += original_count
-            total_weighted += weighted_count
-            if original_count > 0:
-                weight = self.cluster_weights[cluster_id]
-                print(f"  Cluster {cluster_id}: {original_count} campioni → {weighted_count} campioni (peso {weight})")
-        print(f"- Totale campioni: {total_original} → {total_weighted}")
-    
-    def get_weighted_sample_indices(self):
+
+    def get_weighted_sample_indices(self, weights):
         """
         Campiona elementi da ogni cluster rispettando i pesi configurati in _setup_weighted_sampling.
         Usa i cluster_sample_counts calcolati dai cluster_weights.
@@ -164,25 +114,19 @@ class EncodedDataset(Dataset):
         all_indices = []
         
         for cluster_id in range(36):
-            cluster_samples = self.cluster_indices[cluster_id]
-            target_samples = self.cluster_sample_counts[cluster_id]
-            
-            if len(cluster_samples) > 0 and target_samples > 0:
-                # Campiona il numero di elementi specificato dai pesi
-                samples_to_take = min(target_samples, len(cluster_samples))
+            print("Dim cluster_labels:", self.cluster_labels.shape)
+            cluster_samples = np.sum(self.cluster_labels == cluster_id)
+            samples_to_take = cluster_samples * weights[cluster_id]
+
+            selected_indices = np.random.choice(
+                cluster_samples, size=samples_to_take, replace=False
+            )
                 
-                # Campiona randomicamente dal cluster
-                if samples_to_take >= len(cluster_samples):
-                    selected_indices = cluster_samples.copy()
-                else:
-                    selected_indices = np.random.choice(
-                        cluster_samples, size=samples_to_take, replace=False
-                    )
-                
-                all_indices.extend(selected_indices)
+            all_indices.extend(selected_indices)
         
         # Mescola gli indici selezionati
         all_indices = np.array(all_indices)
+        print(f"Numero totale di indici campionati: {len(all_indices)}")
         np.random.shuffle(all_indices)
         
         return all_indices
