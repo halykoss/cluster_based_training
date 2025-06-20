@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 from sklearn.metrics import mean_squared_error
+import sys
 from models import TransformerModelSinusoidal
 from dataset.EncodedDataset import EncodedDataset
 from utils.training_utils import train_model, evaluate_model
@@ -35,8 +36,10 @@ def optimize(trial):
     use_cnn_options = [True]
     cluster_weights = [trial.suggest_float(f"weight_{i}", 0.0, 1.0) for i in range(36)]
     
-    print(f"Trial {trial.number}, campionamento dei pesi dei cluster:")
-    print(f"Pesi: {cluster_weights}")
+    sys.stderr.write(f"Trial {trial.number}, campionamento dei pesi dei cluster:\n")
+    sys.stderr.flush()
+    sys.stderr.write(f"Pesi: {cluster_weights}\n")
+    sys.stderr.flush()
     
     # Prepare datasets with sampled cluster weights
     train_dataset = EncodedDataset(
@@ -51,23 +54,28 @@ def optimize(trial):
 
     test_dataset = EncodedDataset(mode='test', use_encoded=False, include_clusters=False)
 
-    print(f"Training sequences count: {len(train_dataset)}")
-    print(f"Test sequences count: {len(test_dataset)}")
+    sys.stderr.write(f"Training sequences count: {len(train_dataset)}\n")
+    sys.stderr.flush()
+    sys.stderr.write(f"Test sequences count: {len(test_dataset)}\n")
+    sys.stderr.flush()
 
     # Get data info for model configuration
     train_info = train_dataset.get_data_info()
     n_features = train_info['num_features']
     n_targets = train_info['num_targets']
 
-    print(f"Number of features: {n_features}")
-    print(f"Number of targets: {n_targets}")
+    sys.stderr.write(f"Number of features: {n_features}\n")
+    sys.stderr.flush()
+    sys.stderr.write(f"Number of targets: {n_targets}\n")
+    sys.stderr.flush()
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     # Initialize a single model with fixed hyperparameters
     model_name = "TransformerSinusoidal"
-    print(f"\nTraining {model_name} model...")
+    sys.stderr.write(f"\nTraining {model_name} model...\n")
+    sys.stderr.flush()
 
     # Create the model
     model = TransformerModelSinusoidal.TransformerModelSinusoidal(
@@ -154,11 +162,16 @@ def run_cluster_weight_optimization(n_trials=50, study_name="cluster_weights_opt
     with open(results_file, "w") as f:
         json.dump(result, f, indent=4)
     
-    print("\n" + "="*50)
-    print(f"Ottimizzazione completata!")
-    print(f"Miglior MSE: {best_value:.6f}")
-    print(f"Migliori pesi dei cluster salvati in: {results_file}")
-    print("="*50)
+    sys.stderr.write("\n" + "="*50 + "\n")
+    sys.stderr.flush()
+    sys.stderr.write(f"Ottimizzazione completata!\n")
+    sys.stderr.flush()
+    sys.stderr.write(f"Miglior MSE: {best_value:.6f}\n")
+    sys.stderr.flush()
+    sys.stderr.write(f"Migliori pesi dei cluster salvati in: {results_file}\n")
+    sys.stderr.flush()
+    sys.stderr.write("="*50 + "\n")
+    sys.stderr.flush()
     
     return result
 
