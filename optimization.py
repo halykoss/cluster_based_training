@@ -50,7 +50,10 @@ def optimize(trial):
     )
 
     if train_dataset.sampled_indices is not None:
-        np.save("data/indexes/indices_trial_{}.npy".format(trial.number), train_dataset.sampled_indices)
+        indices_dir = "data/indexes"
+        if not os.path.exists(indices_dir):
+            os.makedirs(indices_dir)
+        np.save(os.path.join(indices_dir, "indices_trial_{}.npy".format(trial.number)), train_dataset.sampled_indices)
 
     test_dataset = EncodedDataset(mode='test', use_encoded=False, include_clusters=False)
 
