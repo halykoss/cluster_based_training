@@ -30,7 +30,7 @@ def train_model(trial, weights):
 
     # Use EncodedDataset which handles encoded data loading and cluster-based sampling
     # For now, we'll use the encoded data without cluster weights
-    train_dataset = EncodedDataset(mode='train', use_encoded=False, include_clusters=False, cluster_weights=weights)
+    train_dataset = EncodedDataset(mode='train', use_encoded=False, include_clusters=True, cluster_weights=weights)
     if train_dataset.sampled_indices is not None:
         indices_dir = "data/indexes"
         if not os.path.exists(indices_dir):
