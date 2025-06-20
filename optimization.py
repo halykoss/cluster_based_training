@@ -34,7 +34,11 @@ def optimize(trial):
     embed_dims = [256]
     num_heads_options = 8
     use_cnn_options = [True]
+    
     cluster_weights = [trial.suggest_float(f"weight_{i}", 0.0, 1.0) for i in range(36)]
+    weights_dir = "data/weights/"
+    os.makedirs(weights_dir)
+    np.save(os.path.join(weights_dir, "cluster_weights_trial_{}.npy".format(trial.number)), train_dataset.sampled_indices)
     
     sys.stderr.write(f"Trial {trial.number}, campionamento dei pesi dei cluster:\n")
     sys.stderr.flush()
