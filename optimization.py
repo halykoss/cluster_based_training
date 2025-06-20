@@ -21,95 +21,13 @@ from datetime import datetime
 # 1. Prepare Dataset and DataLoader using EncodedDataset
 # ==========================
 def optimize(trial):
-    device = torch.device("cuda:{}".format(trial.number % torch.cuda.device_count()) if torch.cuda.is_available() else "cpu")
-
-    # Training hyperparameters
-    max_steps = 30 * 1171  # Number of training steps instead of epochs
-    eval_interval = 1100  # Evaluate every 100 steps
-    batch_size = 1024
-    learning_rate = 1e-4
-
-    # Model hyperparameters
-    patch_size = 30
-    embed_dims = [256]
-    num_heads_options = 8
-    use_cnn_options = [True]
     
     cluster_weights = [trial.suggest_float(f"weight_{i}", 0.0, 1.0) for i in range(36)]
     weights_dir = "data/weights/"
     if not os.path.exists(weights_dir):
         os.makedirs(weights_dir)
     np.save(os.path.join(weights_dir, "cluster_weights_trial_{}.npy".format(trial.number)), np.array(cluster_weights))
-    
-    sys.stderr.write(f"Trial {trial.number}, campionamento dei pesi dei cluster:\n")
-    sys.stderr.flush()
-    sys.stderr.write(f"Pesi: {cluster_weights}\n")
-    sys.stderr.flush()
-    
-    # Prepare datasets with sampled cluster weights
-    train_dataset = EncodedDataset(
-        mode='train', 
-        use_encoded=False, 
-        include_clusters=True,
-        cluster_weights=cluster_weights
-    )
-
-    if train_dataset.sampled_indices is not None:
-        indices_dir = "data/indexes"
-        if not os.path.exists(indices_dir):
-            os.makedirs(indices_dir)
-        np.save(os.path.join(indices_dir, "indices_trial_{}.npy".format(trial.number)), train_dataset.sampled_indices)
-
-    test_dataset = EncodedDataset(mode='test', use_encoded=False, include_clusters=False)
-
-    sys.stderr.write(f"Training sequences count: {len(train_dataset)}\n")
-    sys.stderr.flush()
-    sys.stderr.write(f"Test sequences count: {len(test_dataset)}\n")
-    sys.stderr.flush()
-
-    # Get data info for model configuration
-    train_info = train_dataset.get_data_info()
-    n_features = train_info['num_features']
-    n_targets = train_info['num_targets']
-
-    sys.stderr.write(f"Number of features: {n_features}\n")
-    sys.stderr.flush()
-    sys.stderr.write(f"Number of targets: {n_targets}\n")
-    sys.stderr.flush()
-
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
-
-    # Initialize a single model with fixed hyperparameters
-    model_name = "TransformerSinusoidal"
-    sys.stderr.write(f"\nTraining {model_name} model...\n")
-    sys.stderr.flush()
-
-    # Create the model
-    model = TransformerModelSinusoidal.TransformerModelSinusoidal(
-        input_size=n_features, 
-        output_size=n_targets, 
-        patch_size=patch_size,
-        embed_dim=embed_dims[0],
-        num_heads=num_heads_options,
-        use_cnn=use_cnn_options[0]
-    )
-
-    model = model.to(device)
-
-    # Setup optimizer and scheduler
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    total_steps = max_steps
-    warmup_steps = max(1, int(0.3 * total_steps))
-    scheduler = torch.optim.lr_scheduler.LambdaLR(
-        optimizer,
-        lr_lambda=lambda step: float(step) / warmup_steps if step < warmup_steps else max(0.0, float(total_steps - step) / (total_steps - warmup_steps))
-    )
-    loss_fn = nn.MSELoss()
-
-    # Train the model
-    mse = train_model(model, train_loader, optimizer, loss_fn, scheduler, max_steps=max_steps, val_loader=test_loader, val_dataset=test_dataset, eval_interval=eval_interval, device=device)
-
+    mse = train_model(trial, cluster_weights)
     return mse
 
 # ==========================

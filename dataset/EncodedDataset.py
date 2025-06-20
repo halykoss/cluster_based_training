@@ -46,6 +46,7 @@ class EncodedDataset(Dataset):
             sys.stderr.write(f"Dim. x_data: {self.x_data.shape}\n")
             sys.stderr.flush()
             self.sampled_indices = self.get_weighted_sample_indices(self.cluster_weights)
+            self.dataset_ratio = len(self.x_data) / len(self.sampled_indices)
             self.x_data = self.x_data[self.sampled_indices]
             self.y_data = self.y_data[self.sampled_indices]
             sys.stderr.write(f"Dim. x_data: {self.x_data.shape}\n")
