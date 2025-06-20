@@ -140,13 +140,9 @@ class EncodedDataset(Dataset):
         """
         x = torch.tensor(self.x_data[idx], dtype=torch.float32)
         y = torch.tensor(self.y_data[idx], dtype=torch.float32)
-        
-        if self.include_clusters and self.cluster_labels is not None:
-            cluster = torch.tensor(self.cluster_labels[idx], dtype=torch.long)
-            return x, y, cluster
-        else:
-            return x, y
-    
+
+        return x, y
+
     def get_feature_names(self):
         """Restituisce i nomi delle feature"""
         return self.metadata.get('features', [])

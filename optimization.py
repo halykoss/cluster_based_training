@@ -50,7 +50,7 @@ def optimize(trial):
     train_dataset = EncodedDataset(
         mode='train', 
         use_encoded=False, 
-        include_clusters=False,
+        include_clusters=True,
         cluster_weights=cluster_weights
     )
 
