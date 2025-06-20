@@ -4,10 +4,7 @@ import time
 from sklearn.metrics import mean_squared_error
 from tqdm import tqdm
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-def train_model(model, loader, optimizer, loss_fn, scheduler, max_steps=1000, val_loader=None, val_dataset=None, eval_interval=100):
+def train_model(model, loader, optimizer, loss_fn, scheduler, max_steps=1000, val_loader=None, val_dataset=None, eval_interval=100, device=None):
     model.train()
     best_mse = float('inf')
     step = 0
@@ -46,7 +43,7 @@ def train_model(model, loader, optimizer, loss_fn, scheduler, max_steps=1000, va
             
             if val_loader is not None and val_dataset is not None:
                 model.eval()
-                mse, _, _, _, _ = evaluate_model(model, val_loader, val_dataset)
+                mse, _, _, _, _ = evaluate_model(model, val_loader, val_dataset, device=device)
                 
                 if mse < best_mse:
                     best_mse = mse
@@ -61,7 +58,7 @@ def train_model(model, loader, optimizer, loss_fn, scheduler, max_steps=1000, va
     return best_mse
 
 
-def evaluate_model(model, loader, dataset):
+def evaluate_model(model, loader, dataset, device=None):
     model.eval()
     preds, trues = [], []
     samples_processed = 0

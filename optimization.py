@@ -103,7 +103,7 @@ def optimize(trial):
     loss_fn = nn.MSELoss()
 
     # Train the model
-    mse = train_model(model, train_loader, optimizer, loss_fn, scheduler, max_steps=max_steps, val_loader=test_loader, val_dataset=test_dataset, eval_interval=eval_interval)
+    mse = train_model(model, train_loader, optimizer, loss_fn, scheduler, max_steps=max_steps, val_loader=test_loader, val_dataset=test_dataset, eval_interval=eval_interval, device=device)
 
     return mse
 
@@ -142,7 +142,7 @@ def run_cluster_weight_optimization(n_trials=50, study_name="cluster_weights_opt
     
     # Esecuzione dell'ottimizzazione
     print(f"Avvio ottimizzazione con {n_trials} trial...")
-    study.optimize(optimize, n_trials=n_trials, n_jobs=4, show_progress_bar=True)
+    study.optimize(optimize, n_trials=n_trials, n_jobs=5, show_progress_bar=True)
     
     # Estrai i migliori parametri e il miglior valore
     best_params = study.best_params
