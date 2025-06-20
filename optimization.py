@@ -42,7 +42,7 @@ def optimize(trial):
     train_dataset = EncodedDataset(
         mode='train', 
         use_encoded=False, 
-        include_clusters=True,
+        include_clusters=False,
         cluster_weights=cluster_weights
     )
 
@@ -206,7 +206,7 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description="Ottimizzazione dei pesi dei cluster per il training")
-    parser.add_argument("--trials", type=int, default=50, help="Numero di trial Optuna da eseguire")
+    parser.add_argument("--trials", type=int, default=150, help="Numero di trial Optuna da eseguire")
     parser.add_argument("--study", type=str, default="cluster_weights_study", help="Nome dello studio Optuna")
     parser.add_argument("--seed", type=int, default=42, help="Seed per la riproducibilità")
     
