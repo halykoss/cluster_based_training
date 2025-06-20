@@ -15,24 +15,24 @@ import json
 import os
 from datetime import datetime
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# Training hyperparameters
-max_steps = 30 * 1171  # Number of training steps instead of epochs
-eval_interval = 1100  # Evaluate every 100 steps
-batch_size = 1024
-learning_rate = 1e-4
-patch_size = 30
-
-# Model hyperparameters
-embed_dims = [256]
-num_heads_options = 8
-use_cnn_options = [True]
 
 # ==========================
 # 1. Prepare Dataset and DataLoader using EncodedDataset
 # ==========================
 def optimize(trial):
+    device = torch.device("cuda:{}".format(trial.number % torch.cuda.device_count()) if torch.cuda.is_available() else "cpu")
+
+    # Training hyperparameters
+    max_steps = 30 * 1171  # Number of training steps instead of epochs
+    eval_interval = 1100  # Evaluate every 100 steps
+    batch_size = 1024
+    learning_rate = 1e-4
+    patch_size = 30
+
+    # Model hyperparameters
+    embed_dims = [256]
+    num_heads_options = 8
+    use_cnn_options = [True]
     cluster_weights = [trial.suggest_float(f"weight_{i}", 0.0, 1.0) for i in range(36)]
     
     print(f"Trial {trial.number}, campionamento dei pesi dei cluster:")
@@ -126,13 +126,12 @@ def run_cluster_weight_optimization(n_trials=50, study_name="cluster_weights_opt
     study = optuna.create_study(
         study_name=study_name,
         direction="minimize",
-        sampler=optuna.samplers.TPESampler(seed=seed),
-        pruner=optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=0)
+        sampler=optuna.samplers.TPESampler(seed=seed)
     )
     
     # Esecuzione dell'ottimizzazione
     print(f"Avvio ottimizzazione con {n_trials} trial...")
-    study.optimize(optimize, n_trials=n_trials)
+    study.optimize(optimize, n_trials=n_trials, n_jobs=4, show_progress_bar=True)
     
     # Estrai i migliori parametri e il miglior valore
     best_params = study.best_params
